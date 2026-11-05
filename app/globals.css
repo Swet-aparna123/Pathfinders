@@ -1,0 +1,174 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Noto+Sans+Oriya:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&family=Noto+Sans+Gujarati:wght@400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;700&family=Noto+Sans+Kannada:wght@400;500;600;700&family=Noto+Sans+Malayalam:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-fraunces: 'Fraunces', serif;
+  --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-plex-mono: 'IBM Plex Mono', monospace;
+  --font-devanagari: 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-odia: 'Noto Sans Oriya', 'Kalinga', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-bengali: 'Noto Sans Bengali', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-telugu: 'Noto Sans Telugu', 'Gautami', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+html[lang="hi"] body {
+  font-family: var(--font-devanagari);
+  line-height: 1.68;
+}
+
+html[lang="or"] body {
+  font-family: var(--font-odia);
+  line-height: 1.72;
+}
+
+html[lang="bn"] body {
+  font-family: var(--font-bengali);
+  line-height: 1.68;
+}
+
+html[lang="te"] body {
+  font-family: var(--font-telugu);
+  line-height: 1.72;
+}
+
+/* Ensure text wrapping on sidebars, buttons, and badges for Indic scripts */
+.lang-indic-wrap {
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes compass-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.9; }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(3deg); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.4; filter: blur(30px); }
+  50% { opacity: 0.75; filter: blur(45px); }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.35s ease-out forwards;
+}
+
+.animate-float-slow {
+  animation: float-slow 7s ease-in-out infinite;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 4s ease-in-out infinite;
+}
+
+.compass-needle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: compass-spin 9s linear infinite;
+}
+
+.constellation-line {
+  animation: twinkle 4s ease-in-out infinite;
+}
+
+/* small torn-tape accent on feature cards */
+.feature-tab {
+  position: relative;
+}
+.feature-tab::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 24px;
+  width: 34px;
+  height: 10px;
+  background: #b9862e;
+  opacity: 0.4;
+  clip-path: polygon(0 0, 100% 0, 90% 100%, 10% 100%);
+}
+
+/* dashed inset border on the postcard */
+.postcard-inset {
+  position: relative;
+}
+.postcard-inset::before {
+  content: '';
+  position: absolute;
+  inset: 14px;
+  border: 1px dashed rgba(36, 31, 26, 0.22);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Hide Next.js Dev Indicator Badge */
+[data-nextjs-toast],
+[data-nextjs-toast-wrapper],
+next-route-announcer,
+div[data-nextjs-dialog-overlay] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Custom Sleek Scrollbar for entire application */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(212, 160, 52, 0.35);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 160, 52, 0.65);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 160, 52, 0.35) transparent;
+}
+
+
