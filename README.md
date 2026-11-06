@@ -1,63 +1,41 @@
 # PathFinders
 
-Landing page for PathFinders — "Where Dreams Meet Direction."
+Career exploration and guidance app built with Next.js 15 and React 19. The frontend and its Next.js API routes live in `frontend/`; model integration lives in `backend/`.
 
-## Stack
+## Run locally on Windows
 
-- **Next.js 15** (App Router)
-- **React 19**
-- **Tailwind CSS** for styling, with a custom color/type token system
-- **Framer Motion** for the compass needle, hero entrance, and scroll reveals
-- **lucide-react** for icons
+1. Install Node.js 20 or newer.
+2. Double-click `start.bat` (or run it from a terminal).
+3. The launcher installs frontend dependencies when needed, starts Next.js, and opens `http://localhost:3000`.
 
-## Getting started
+For manual startup:
 
-```bash
+```powershell
+cd frontend
 npm install
 npm run dev
 ```
 
-Then open [http://localhost:3000](http://localhost:3000).
+## Environment
 
-## Folder structure
+The root `.env` file is loaded by `frontend/next.config.js`. It contains the server-side `GROQ_API_KEY` and `GROQ_MODEL` settings. The key is never sent to the browser. Keep `.env` private; it is ignored by Git.
 
+The project also uses Supabase Auth. Replace `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env` with credentials from your Supabase project to enable registration and sign-in.
+
+The chat endpoint calls Groq's Chat Completions API through `backend/groq.js`. Change `GROQ_MODEL` in `.env` to select another model available to your Groq account. Rapid Fire assessment scoring remains a deterministic application engine. Parent/student linking currently has no server implementation and does not create simulated approvals or sample profiles.
+
+## Project layout
+
+```text
+backend/
+  groq.js                 Server-side Groq client
+frontend/
+  app/                    Pages and API routes
+  components/             React UI
+  lib/                    Assessment, auth, and localization logic
+  public/                 Static assets
+  package.json
+  next.config.js
+start.bat                 Windows local launcher
+.env                      Local credentials (ignored by Git)
 ```
-pathfinders-next/
-├── app/
-│   ├── layout.js       # fonts, metadata, root HTML shell
-│   ├── page.js         # assembles all sections
-│   └── globals.css     # Tailwind directives + base styles
-├── components/
-│   ├── Navbar.jsx
-│   ├── Hero.jsx
-│   ├── CompassRose.jsx # animated SVG compass (client component)
-│   ├── Starfield.jsx   # canvas starfield (client component)
-│   ├── StatsStrip.jsx
-│   ├── Journey.jsx      # 4-step process, scroll-reveal animated
-│   ├── Features.jsx
-│   ├── Audience.jsx     # students vs. professionals
-│   ├── Quote.jsx
-│   ├── CTA.jsx
-│   └── Footer.jsx
-├── public/
-├── tailwind.config.js   # custom colors: ink, brass, trail, parchment, fog...
-├── postcss.config.js
-├── next.config.js
-└── jsconfig.json        # "@/*" import alias
-```
-
-## Design tokens
-
-Colors and fonts are defined in `tailwind.config.js`:
-
-- `ink` / `ink-deep` — deep navy backgrounds (night sky)
-- `parchment` / `parchment-dim` — warm cream surfaces
-- `brass` / `brass-bright` — gold accent (direction / compass)
-- `trail` / `trail-light` — muted sage green accent (growth / path)
-- Fonts: **Fraunces** (display), **Inter** (body), **IBM Plex Mono** (labels/data), loaded via `next/font/google` in `app/layout.js`
-
-## Notes
-
-- The stats in `StatsStrip.jsx` (73%, 4 in 10) are placeholder figures — swap in real, sourced data before shipping.
-- All components are mobile-responsive down to small phone widths.
-- `prefers-reduced-motion` is respected globally in `globals.css`.
