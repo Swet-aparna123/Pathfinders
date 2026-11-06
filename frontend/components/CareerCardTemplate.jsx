@@ -20,6 +20,7 @@ import {
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 import { formatDate } from '@/lib/i18n/formatting';
 import { userProfileService } from '@/lib/userProfileService';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { getStudentMatchForCareer } from '@/lib/studentCareerMatch';
 import { getRelatedCareerCards } from '@/lib/careerCardsData';
 import CareerIllustration from './CareerIllustrations';
@@ -40,6 +41,10 @@ export default function CareerCardTemplate({ career, initialLang }) {
 
   // State management
   const [isSaved, setIsSaved] = useState(false);
+  const [savedCareersUserId, setSavedCareersUserId] = useState(null);
+  const [savedCareersLoading, setSavedCareersLoading] = useState(true);
+  const [savingCareer, setSavingCareer] = useState(false);
+  const [savedCareersError, setSavedCareersError] = useState('');
   const [toastMessage, setToastMessage] = useState(null);
   const [studentMatch, setStudentMatch] = useState({ isVisible: false });
   const [userRole, setUserRole] = useState(null);
@@ -50,24 +55,49 @@ export default function CareerCardTemplate({ career, initialLang }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // 1. Saved career status from localStorage
-    try {
-      const savedRaw = localStorage.getItem('pathfinders_saved_careers');
-      if (savedRaw) {
-        const savedList = JSON.parse(savedRaw);
-        if (Array.isArray(savedList) && savedList.includes(career?.slug)) {
-          setIsSaved(true);
-        }
-      }
-    } catch {
-      // ignore storage error
-    }
-
-    // 2. User profile & student RIASEC match
     const profile = userProfileService.getProfile();
     setUserRole(profile?.role || null);
     const match = getStudentMatchForCareer(career);
     setStudentMatch(match);
+
+    let isCurrent = true;
+
+    const loadSavedCareers = async () => {
+      setIsSaved(false);
+      setSavedCareersUserId(null);
+      setSavedCareersError('');
+      setSavedCareersLoading(true);
+
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+        if (!isCurrent) return;
+
+        if (!user) return;
+        setSavedCareersUserId(user.id);
+
+        const { data, error } = await supabase
+          .from('saved_careers')
+          .select('career_name')
+          .eq('user_id', user.id);
+        if (error) throw error;
+        if (!isCurrent) return;
+
+        setIsSaved(data?.some((savedCareer) => savedCareer.career_name === career?.slug) || false);
+      } catch (error) {
+        console.error('Failed to load saved careers:', error);
+        if (isCurrent) setSavedCareersError('Could not load saved careers. Please try again.');
+      } finally {
+        if (isCurrent) setSavedCareersLoading(false);
+      }
+    };
+
+    loadSavedCareers();
+
+    return () => {
+      isCurrent = false;
+    };
   }, [career]);
 
   // Toast notifier
@@ -77,26 +107,57 @@ export default function CareerCardTemplate({ career, initialLang }) {
   };
 
   // Toggle "Save to my list"
-  const handleToggleSave = () => {
-    try {
-      const savedRaw = localStorage.getItem('pathfinders_saved_careers');
-      let savedList = savedRaw ? JSON.parse(savedRaw) : [];
-      if (!Array.isArray(savedList)) savedList = [];
+  const handleToggleSave = async () => {
+    if (!savedCareersUserId) {
+      showToast(savedCareersError || 'Please sign in to save careers.');
+      return;
+    }
 
-      let nextSaved = false;
-      if (savedList.includes(career.slug)) {
-        savedList = savedList.filter((s) => s !== career.slug);
-        nextSaved = false;
+    if (!career?.slug) {
+      const message = 'Could not save this career because its identifier is missing.';
+      setSavedCareersError(message);
+      showToast(message);
+      return;
+    }
+
+    setSavingCareer(true);
+    setSavedCareersError('');
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      if (isSaved) {
+        const { error } = await supabase
+          .from('saved_careers')
+          .delete()
+          .eq('user_id', savedCareersUserId)
+          .eq('career_name', career.slug);
+        if (error) throw error;
+
+        setIsSaved(false);
         showToast(`Removed ${career.title} from your list.`);
       } else {
-        savedList.push(career.slug);
-        nextSaved = true;
+        const { error } = await supabase
+          .from('saved_careers')
+          .upsert(
+            {
+              user_id: savedCareersUserId,
+              career_name: career.slug,
+              career_details: career,
+            },
+            { onConflict: 'user_id,career_name' }
+          );
+        if (error) throw error;
+
+        setIsSaved(true);
         showToast(`Saved ${career.title} to your list!`);
       }
-      localStorage.setItem('pathfinders_saved_careers', JSON.stringify(savedList));
-      setIsSaved(nextSaved);
-    } catch (e) {
-      console.warn('Error saving career:', e);
+    } catch (error) {
+      console.error('Error updating saved career:', error);
+      const message = 'Could not update your saved careers. Please try again.';
+      setSavedCareersError(message);
+      showToast(message);
+    } finally {
+      setSavingCareer(false);
     }
   };
 
@@ -222,6 +283,8 @@ export default function CareerCardTemplate({ career, initialLang }) {
                   <button
                     type="button"
                     onClick={handleToggleSave}
+                    disabled={savedCareersLoading || savingCareer}
+                    aria-busy={savedCareersLoading || savingCareer}
                     className={`inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full text-xs font-mono uppercase tracking-wider min-h-[44px] min-w-[44px] transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-brass-bright ${
                       isSaved
                         ? 'bg-brass text-ink-deep font-bold border border-brass-bright shadow-md'
@@ -235,6 +298,27 @@ export default function CareerCardTemplate({ career, initialLang }) {
                         : t('careerCard.saveToList', {}, 'Save to my list')}
                     </span>
                   </button>
+
+                  {savedCareersLoading && (
+                    <p role="status" className="w-full text-xs font-mono text-fog/75">
+                      Loading saved careers...
+                    </p>
+                  )}
+                  {!savedCareersLoading && savedCareersError && (
+                    <p role="alert" className="w-full text-xs font-mono text-amber-300">
+                      {savedCareersError}
+                    </p>
+                  )}
+                  {!savedCareersLoading && !savedCareersError && !savedCareersUserId && (
+                    <p role="status" className="w-full text-xs font-mono text-fog/75">
+                      Sign in to save careers to your account.
+                    </p>
+                  )}
+                  {savingCareer && (
+                    <p role="status" className="w-full text-xs font-mono text-fog/75">
+                      Updating saved careers...
+                    </p>
+                  )}
 
                   <button
                     type="button"
@@ -472,7 +556,12 @@ export default function CareerCardTemplate({ career, initialLang }) {
                         key={idx}
                         className="px-3.5 py-2 rounded-full border border-parchment-dim bg-[#fbf7ee] text-xs sm:text-sm font-semibold text-charcoal"
                       >
-                        {exam}
+                        {typeof exam === 'string' ? exam : (
+                          <>
+                            {exam.name}
+                            {exam.frequency && <span className="ml-1 font-normal text-stone-600">({exam.frequency})</span>}
+                          </>
+                        )}
                       </span>
                     ))}
                   </div>
@@ -726,7 +815,13 @@ export default function CareerCardTemplate({ career, initialLang }) {
                             key={idx}
                             className="p-3 rounded-xl border border-parchment-dim bg-parchment text-sm text-charcoal font-medium"
                           >
-                            {inst}
+                            {typeof inst === 'string' ? inst : (
+                              <>
+                                <span>{inst.name}</span>
+                                {inst.location && <span className="block text-xs text-stone-600">{inst.location}</span>}
+                                {inst.flagshipProgram && <span className="block text-xs text-stone-600">{inst.flagshipProgram}</span>}
+                              </>
+                            )}
                           </li>
                         ))}
                       </ul>
@@ -746,7 +841,13 @@ export default function CareerCardTemplate({ career, initialLang }) {
                             key={idx}
                             className="p-3 rounded-xl border border-parchment-dim bg-parchment text-sm text-charcoal font-medium"
                           >
-                            {inst}
+                            {typeof inst === 'string' ? inst : (
+                              <>
+                                <span>{inst.name}</span>
+                                {inst.location && <span className="block text-xs text-stone-600">{inst.location}</span>}
+                                {inst.flagshipProgram && <span className="block text-xs text-stone-600">{inst.flagshipProgram}</span>}
+                              </>
+                            )}
                           </li>
                         ))}
                       </ul>
