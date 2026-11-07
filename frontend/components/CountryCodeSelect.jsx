@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { ChevronDown, Check, Search } from 'lucide-react';
 
 export const COUNTRY_CODES = [
@@ -231,9 +232,12 @@ export default function CountryCodeSelect({ value = '+91', onChange, className =
         className="flex items-center gap-2 rounded-lg border border-parchment/20 bg-ink/80 px-2.5 py-3 text-xs text-brass-bright font-mono font-bold hover:border-brass/40 transition-colors focus:outline-none focus:ring-1 focus:ring-brass"
         aria-expanded={isOpen}
       >
-        <img
+        <Image
           src={selectedItem.flag}
           alt={selectedItem.label}
+          width={20}
+          height={14}
+          unoptimized
           className="w-5 h-3.5 object-cover rounded-[2px] shadow-sm border border-white/20 shrink-0"
           loading="eager"
         />
@@ -271,9 +275,12 @@ export default function CountryCodeSelect({ value = '+91', onChange, className =
                         : 'text-parchment/90 hover:bg-white/5 hover:text-white'
                     }`}
                   >
-                    <img
+                    <Image
                       src={item.flag}
                       alt={item.label}
+                      width={20}
+                      height={14}
+                      unoptimized
                       className="w-5 h-3.5 object-cover rounded-[2px] shadow-sm border border-white/20 shrink-0"
                       loading="lazy"
                     />

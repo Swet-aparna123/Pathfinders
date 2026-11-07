@@ -7,7 +7,15 @@ export function formatPhoneNumber(countryCode, phone) {
 
 export function registrationErrorMessage(error) {
   const message = error?.message || 'Unable to create your account. Please try again.';
-  const normalized = message.toLowerCase();
+  const normalized = `${message} ${error?.code || ''}`.toLowerCase();
+
+  if (
+    normalized.includes('over_email_send_rate_limit') ||
+    normalized.includes('email rate limit') ||
+    normalized.includes('email_send_rate_limit')
+  ) {
+    return 'Supabase has reached this project’s email sending limit. Wait for the limit to reset, or configure a custom SMTP provider in Supabase to send more emails.';
+  }
 
   if (
     normalized.includes('already registered') ||
@@ -22,6 +30,20 @@ export function registrationErrorMessage(error) {
   if (normalized.includes('password')) return 'Choose a password that meets the listed requirements.';
   if (normalized.includes('phone')) return 'Enter a valid phone number in international format.';
   return message;
+}
+
+export function canUseLocalDemoFallback(error) {
+  if (process.env.NODE_ENV === 'production') return false;
+  const normalized = `${error?.message || ''} ${error?.code || ''}`.toLowerCase();
+  return normalized.includes('already registered')
+    || normalized.includes('already been registered')
+    || normalized.includes('account with this email already exists')
+    || normalized.includes('user exists')
+    || normalized.includes('email_exists')
+    || normalized.includes('duplicate key')
+    || normalized.includes('over_email_send_rate_limit')
+    || normalized.includes('email rate limit')
+    || normalized.includes('email sending limit');
 }
 
 export async function registerWithSupabase({ email, password, profile }) {

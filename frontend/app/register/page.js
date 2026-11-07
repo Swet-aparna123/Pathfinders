@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountryCodeSelect from '@/components/CountryCodeSelect';
 import {
@@ -25,7 +26,9 @@ import {
   Compass
 } from 'lucide-react';
 import GrainOverlay from '@/components/GrainOverlay';
-import { formatPhoneNumber, registerWithSupabase } from '@/lib/supabase/registration';
+import { formatPhoneNumber, registerWithSupabase, canUseLocalDemoFallback } from '@/lib/supabase/registration';
+import { userProfileService } from '@/lib/userProfileService';
+import { getRoleHome } from '@/lib/auth/navigation';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
@@ -86,8 +89,10 @@ function RegisterFormContent() {
 
   // Transition & Animation State
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [transitMessage, setTransitMessage] = useState('');
   const [emailSent, setEmailSent] = useState(false);
+  const [demoReady, setDemoReady] = useState(false);
 
   const passRules = getPasswordRules(password);
   const isPassValid = passRules.minLength && passRules.hasUpper && passRules.hasNumber && passRules.hasSymbol;
@@ -160,20 +165,21 @@ function RegisterFormContent() {
 
     setIsTransitioning(true);
     setTransitMessage('Creating your account and sending an email verification link...');
+    const profile = {
+      fullName: fullName.trim(),
+      firstName: firstName.trim(),
+      middleName: middleName.trim(),
+      lastName: lastName.trim(),
+      phone: formatPhoneNumber(countryCode, phone),
+      role,
+      createdAt: new Date().toISOString(),
+      avatarUrl: profilePic || null,
+    };
     try {
-      const { data } = await registerWithSupabase({
+      const data = await registerWithSupabase({
         email,
         password,
-        profile: {
-          fullName: fullName.trim(),
-          firstName: firstName.trim(),
-          middleName: middleName.trim(),
-          lastName: lastName.trim(),
-          phone: formatPhoneNumber(countryCode, phone),
-          role,
-          createdAt: new Date().toISOString(),
-          avatarUrl: profilePic || null,
-        },
+        profile,
       });
       if (data.session) {
         window.location.assign('/register/verify-phone');
@@ -183,6 +189,12 @@ function RegisterFormContent() {
       }
     } catch (error) {
       setIsTransitioning(false);
+      if (canUseLocalDemoFallback(error)) {
+        userProfileService.startDemoSession({ ...profile, email });
+        setPassError('');
+        setDemoReady(true);
+        return;
+      }
       setPassError(error.message || 'Unable to create your account. Please try again.');
     }
   };
@@ -238,7 +250,24 @@ function RegisterFormContent() {
           </div>
 
           {/* Form */}
-          {emailSent ? (
+          {demoReady ? (
+            <div role="status" className="py-8 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-brass-bright bg-brass/10 text-brass-bright">
+                <Compass className="h-8 w-8" />
+              </div>
+              <h2 className="font-display text-2xl font-semibold text-parchment">Local demo profile ready</h2>
+              <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-fog/80">
+                A synthetic profile was saved in this browser. No Supabase account was created and no email was sent.
+              </p>
+              <button
+                type="button"
+                onClick={() => window.location.assign(getRoleHome(userProfileService.getDemoProfile()))}
+                className="mt-6 rounded-full bg-brass px-5 py-2.5 text-sm font-semibold text-ink-deep hover:bg-brass-bright"
+              >
+                Continue in demo mode
+              </button>
+            </div>
+          ) : emailSent ? (
             <div className="py-8 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-brass-bright bg-brass/10 text-brass-bright">
                 <Mail className="h-8 w-8" />
@@ -250,7 +279,10 @@ function RegisterFormContent() {
               </p>
               <button
                 type="button"
+                disabled={isResending}
                 onClick={async () => {
+                  if (isResending) return;
+                  setIsResending(true);
                   setPassError('');
                   setTransitMessage('');
                   try {
@@ -258,11 +290,13 @@ function RegisterFormContent() {
                     setTransitMessage('A new verification email has been sent.');
                   } catch (error) {
                     setPassError(error.message);
+                  } finally {
+                    setIsResending(false);
                   }
                 }}
-                className="mt-6 rounded-full border border-brass/50 px-5 py-2.5 text-sm font-semibold text-brass-bright hover:bg-brass/10"
+                className="mt-6 rounded-full border border-brass/50 px-5 py-2.5 text-sm font-semibold text-brass-bright hover:bg-brass/10 disabled:cursor-wait disabled:opacity-50"
               >
-                Resend verification email
+                {isResending ? 'Sending…' : 'Resend verification email'}
               </button>
               {passError && <p role="alert" className="mt-4 text-sm text-red-300">{passError}</p>}
               {transitMessage.includes('new verification') && <p role="status" className="mt-3 text-sm text-emerald-300">{transitMessage}</p>}
@@ -341,7 +375,7 @@ function RegisterFormContent() {
                       className="relative flex h-16 w-16 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-brass-bright/70 bg-ink-deep text-brass-bright shadow-lg transition-all group-hover:scale-105"
                     >
                       {profilePic ? (
-                        <img src={profilePic} alt="Profile Avatar" className="h-full w-full object-cover" />
+                        <Image src={profilePic} alt="Profile Avatar" width={64} height={64} unoptimized className="h-full w-full object-cover" />
                       ) : (
                         <User className="h-8 w-8 text-fog/50 group-hover:text-brass-bright" />
                       )}

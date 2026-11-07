@@ -55,6 +55,7 @@ function RapidFireAssessmentContent() {
   const [errorBanner, setErrorBanner] = useState('');
   const [isAdvancing, setIsAdvancing] = useState(false);
   const advancingTimeoutRef = useRef(null);
+  const handleSelectOptionRef = useRef(null);
 
   // Clear pending timeouts on unmount
   useEffect(() => {
@@ -141,15 +142,15 @@ function RapidFireAssessmentContent() {
 
       if (['1', '2', '3', '4'].includes(e.key)) {
         const optMap = { '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
-        handleSelectOption(optMap[e.key]);
+        handleSelectOptionRef.current?.(optMap[e.key]);
       } else if (['a', 'b', 'c', 'd', 'A', 'B', 'C', 'D'].includes(e.key)) {
-        handleSelectOption(e.key.toUpperCase());
+        handleSelectOptionRef.current?.(e.key.toUpperCase());
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [stage, currentIndex, trackInfo, responses]);
+  }, [stage]);
 
   // Record answer selection & auto-advance with animation
   const handleSelectOption = (optId) => {
@@ -194,6 +195,7 @@ function RapidFireAssessmentContent() {
       }
     }, 320);
   };
+  handleSelectOptionRef.current = handleSelectOption;
 
   // Skip current question
   const handleSkip = () => {

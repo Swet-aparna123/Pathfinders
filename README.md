@@ -22,6 +22,8 @@ The root `.env` file is loaded by `frontend/next.config.js`. It contains the ser
 
 The project also uses Supabase Auth. Replace `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env` with credentials from your Supabase project to enable registration and sign-in.
 
+When local development registration is blocked by a duplicate email or Supabase email rate limit, the registration flow offers a synthetic demo profile saved only in the current browser. It does not create a Supabase account or send an email, and this fallback is disabled in production.
+
 The chat endpoint calls Groq's Chat Completions API through `backend/groq.js`. Change `GROQ_MODEL` in `.env` to select another model available to your Groq account. Rapid Fire assessment scoring remains a deterministic application engine. Parent/student linking currently has no server implementation and does not create simulated approvals or sample profiles.
 
 ## Project layout

@@ -49,6 +49,13 @@ export function AuthProvider({ children }) {
   }, [setAuthenticatedUser]);
 
   const logout = useCallback(async () => {
+    if (user?.authMode === 'demo') {
+      userProfileService.clearDemoSession();
+      userProfileService.clearAuthenticatedProfile();
+      setAuthenticatedUser(null);
+      return;
+    }
+
     const response = await fetch('/api/auth/logout', {
       method: 'POST',
       credentials: 'same-origin',
@@ -56,7 +63,7 @@ export function AuthProvider({ children }) {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Unable to sign out.');
     setAuthenticatedUser(null);
-  }, [setAuthenticatedUser]);
+  }, [setAuthenticatedUser, user]);
 
   useEffect(() => {
     let active = true;
@@ -111,7 +118,19 @@ export function AuthProvider({ children }) {
     logout,
   }), [user, status, setAuthenticatedUser, refresh, logout]);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {user?.authMode === 'demo' && (
+        <div
+          role="status"
+          className="fixed bottom-3 left-1/2 z-[120] -translate-x-1/2 rounded-full border border-amber-400/40 bg-slate-950/90 px-4 py-2 text-center text-xs text-amber-100 shadow-lg"
+        >
+          Local demo session · synthetic data stays in this browser
+        </div>
+      )}
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

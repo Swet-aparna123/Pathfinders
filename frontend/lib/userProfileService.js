@@ -2,6 +2,8 @@
 import { calculateAssessmentResults } from './careerAssessmentEngine';
 
 const STORAGE_KEY = 'pathfinders_user_profile_v3';
+const DEMO_PROFILE_KEY = 'pathfinders_local_demo_profile_v1';
+const DEMO_ROLE_COOKIE = 'pathfinders_demo_role';
 
 const DEFAULT_PROFILE = {
   id: 'guest_user',
@@ -130,6 +132,8 @@ export const userProfileService = {
         localStorage.removeItem(this.getUserStorageKey(activeId));
       }
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(DEMO_PROFILE_KEY);
+      document.cookie = `${DEMO_ROLE_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
       localStorage.setItem('pathfinders_active_user_id', 'default_user');
       this.clearTransientState();
       window.dispatchEvent(new CustomEvent('pathfinders_profile_updated', {
@@ -179,6 +183,41 @@ export const userProfileService = {
     return ensureProfileHydrated(loaded);
   },
 
+  getDemoProfile() {
+    if (process.env.NODE_ENV === 'production' || typeof window === 'undefined') return null;
+    try {
+      const profile = JSON.parse(localStorage.getItem(DEMO_PROFILE_KEY) || 'null');
+      if (profile?.authMode === 'demo' && profile.id && ['student', 'parent', 'switch'].includes(profile.role)) {
+        return ensureProfileHydrated(profile);
+      }
+    } catch (error) {
+      console.warn('Failed to load local demo profile:', error);
+    }
+    return null;
+  },
+
+  startDemoSession(accountData = {}) {
+    if (process.env.NODE_ENV === 'production' || typeof window === 'undefined') return null;
+    const profile = this.createNewUser({ ...accountData, authMode: 'demo', isSynthetic: true });
+    try {
+      localStorage.setItem(DEMO_PROFILE_KEY, JSON.stringify(profile));
+      document.cookie = `${DEMO_ROLE_COOKIE}=${profile.role}; Path=/; Max-Age=43200; SameSite=Lax`;
+    } catch (error) {
+      console.warn('Failed to start local demo session:', error);
+    }
+    return profile;
+  },
+
+  clearDemoSession() {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(DEMO_PROFILE_KEY);
+      document.cookie = `${DEMO_ROLE_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+    } catch (error) {
+      console.warn('Failed to clear local demo session:', error);
+    }
+  },
+
   saveProfile(profileData, targetUserId = null) {
     const current = this.getProfile(targetUserId);
     const updatedRaw = { ...current, ...profileData };
@@ -206,9 +245,12 @@ export const userProfileService = {
         const userKey = this.getUserStorageKey(targetUserId || hydrated.id);
         localStorage.setItem(userKey, JSON.stringify(hydrated));
         localStorage.setItem(STORAGE_KEY, JSON.stringify(hydrated));
+        if (hydrated.authMode === 'demo') {
+          localStorage.setItem(DEMO_PROFILE_KEY, JSON.stringify(hydrated));
+        }
         window.dispatchEvent(new CustomEvent('pathfinders_profile_updated', { detail: hydrated }));
         // Keep the local cache responsive while persisting signed-in profiles server-side.
-        if (hydrated.id && hydrated.id !== 'guest_user' && hydrated.id !== 'default_guest') {
+        if (hydrated.id && hydrated.id !== 'guest_user' && hydrated.id !== 'default_guest' && hydrated.authMode !== 'demo') {
           fetch('/api/profile', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -248,7 +290,10 @@ export const userProfileService = {
 
     const freshProfile = {
       ...DEFAULT_PROFILE,
+      ...accountData,
       id: newId,
+      authMode: accountData.authMode || 'local',
+      isSynthetic: accountData.isSynthetic === true,
       fullName: (accountData.fullName || '').trim(),
       firstName: (accountData.firstName || '').trim(),
       middleName: (accountData.middleName || '').trim(),

@@ -12,6 +12,7 @@ function safeContext(context = {}) {
 
 export async function generateCareerGuidance({ message, history = [], studentContext = {}, language = 'en' }) {
   const apiKey = process.env.GROQ_API_KEY;
+  const model = (process.env.GROQ_MODEL || 'openai/gpt-oss-120b').trim();
   if (!apiKey) {
     const error = new Error('GROQ_API_KEY is not configured. Add it to the root .env file and restart the app.');
     error.status = 503;
@@ -34,7 +35,7 @@ export async function generateCareerGuidance({ message, history = [], studentCon
     },
     signal: AbortSignal.timeout(45000),
     body: JSON.stringify({
-      model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+      model,
       temperature: 0.6,
       max_completion_tokens: 700,
       messages: [
@@ -56,7 +57,13 @@ export async function generateCareerGuidance({ message, history = [], studentCon
   });
 
   if (!response.ok) {
-    const error = new Error(`Groq request failed with status ${response.status}. Check GROQ_API_KEY, GROQ_MODEL, and account limits.`);
+    const messages = {
+      401: 'Groq rejected the API key. Check GROQ_API_KEY in the root .env file.',
+      403: `The Groq account does not have access to the configured model: ${model}.`,
+      404: `Groq could not find the configured model: ${model}. Set GROQ_MODEL to an active model in the root .env file.`,
+      429: 'Groq rate limit reached. Wait briefly and try again, or review the account limits.',
+    };
+    const error = new Error(messages[response.status] || `Groq request failed with status ${response.status}.`);
     error.status = response.status === 429 ? 429 : 502;
     throw error;
   }

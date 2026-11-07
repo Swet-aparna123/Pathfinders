@@ -55,7 +55,16 @@ export async function POST(request) {
     });
 
     if (error) {
-      const message = error.message.toLowerCase();
+      const message = `${error.message || ''} ${error.code || ''}`.toLowerCase();
+      if (
+        message.includes('over_email_send_rate_limit') ||
+        message.includes('email rate limit') ||
+        message.includes('email_send_rate_limit')
+      ) {
+        return NextResponse.json({
+          error: 'Supabase has reached this project’s email sending limit. Wait for the limit to reset, or configure a custom SMTP provider in Supabase to send more emails.',
+        }, { status: 429 });
+      }
       const duplicate = message.includes('already registered') || message.includes('already been registered') || message.includes('email_exists');
       return NextResponse.json({
         error: duplicate

@@ -6,7 +6,7 @@ const protectedRoutes = [
   { pattern: /^\/(?:dashboard|student-dashboard|academic-background)(?:\/|$)/, role: 'student' },
   { pattern: /^\/parent-dashboard(?:\/|$)/, role: 'parent' },
   { pattern: /^\/career-switcher-dashboard(?:\/|$)/, role: 'switch' },
-  { pattern: /^\/rapid-fire(?:\/|$)/ },
+  { pattern: /^\/rapid-fire(?:\/|$)/, role: 'student' },
   { pattern: /^\/api\/profile$/ },
   { pattern: /^\/register\/verify-phone(?:\/|$)/, phoneVerification: true },
 ];
@@ -19,6 +19,27 @@ function preserveUpdatedCookies(source, destination) {
 }
 
 export async function middleware(request) {
+  const pathname = request.nextUrl.pathname;
+  const route = protectedRoutes.find(({ pattern }) => pattern.test(pathname));
+  const isLoginPage = pathname === '/login';
+  const demoRole = request.cookies.get('pathfinders_demo_role')?.value;
+  const isLocalDemo = process.env.NODE_ENV !== 'production'
+    && ['student', 'parent', 'switch'].includes(demoRole);
+
+  if (isLocalDemo) {
+    if (isLoginPage) return NextResponse.next();
+    if (route?.phoneVerification) {
+      return NextResponse.redirect(new URL(getRoleHome({ role: demoRole }), request.url));
+    }
+    if (route?.role && route.role !== demoRole) {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ error: 'This local demo profile cannot access that role.' }, { status: 403 });
+      }
+      return NextResponse.redirect(new URL(getRoleHome({ role: demoRole }), request.url));
+    }
+    return NextResponse.next();
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) {
@@ -30,8 +51,6 @@ export async function middleware(request) {
     });
   }
 
-  const route = protectedRoutes.find(({ pattern }) => pattern.test(request.nextUrl.pathname));
-  const isLoginPage = request.nextUrl.pathname === '/login';
   if (!route && !isLoginPage) return NextResponse.next();
 
   let response = NextResponse.next({ request });
@@ -61,7 +80,6 @@ export async function middleware(request) {
     return new NextResponse('Unable to verify your session. Please try again.', { status: 503 });
   }
 
-  const pathname = request.nextUrl.pathname;
   if (!user && route) {
     const hasAuthCookie = request.cookies.getAll().some(({ name }) => name.startsWith('sb-') && name.includes('-auth-token'));
     if (pathname.startsWith('/api/')) {

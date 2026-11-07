@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Compass,
@@ -1273,7 +1274,7 @@ export default function StudentDashboardComponent() {
               <div className="flex items-center gap-2 min-w-0 flex-1 mr-1">
                 <span className="h-7 w-7 rounded-full bg-slate-800 text-[#D4A034] font-bold flex items-center justify-center text-xs border border-slate-700 group-hover:border-[#D4A034] overflow-hidden shrink-0 uppercase">
                   {userProfile.avatarUrl ? (
-                    <img src={userProfile.avatarUrl} alt={fullName} className="h-full w-full object-cover" />
+                    <Image src={userProfile.avatarUrl} alt={fullName} width={28} height={28} unoptimized className="h-full w-full object-cover" />
                   ) : (
                     getInitials(fullName)
                   )}

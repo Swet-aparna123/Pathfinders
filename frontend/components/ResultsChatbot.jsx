@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles,
@@ -73,7 +73,7 @@ export default function ResultsChatbot({
   const secondaryCareerTitle = assessmentResults.topCareers?.[1]?.title || assessmentResults.topCareers?.[1] || 'Product Expedition Lead';
 
   // Construct student context payload (inputs bot can use and nothing else)
-  const studentContext = {
+  const studentContext = useMemo(() => ({
     firstName,
     class_stage: studentProfile.educationLevel || studentProfile.academicStream || 'Class 11–12',
     dominant_code: dominantCode,
@@ -88,7 +88,19 @@ export default function ResultsChatbot({
     ],
     rapid_fire_signals: studentProfile.rapidFireResult?.adaptive_questionnaire_signals || [],
     language
-  };
+  }), [
+    firstName,
+    studentProfile.educationLevel,
+    studentProfile.academicStream,
+    dominantCode,
+    dominantTrait,
+    secondTrait,
+    assessmentResults.percentages,
+    assessmentResults.workingStyle,
+    assessmentResults.topCareers,
+    studentProfile.rapidFireResult?.adaptive_questionnaire_signals,
+    language
+  ]);
 
   // State
   const [messages, setMessages] = useState([]);
@@ -237,7 +249,7 @@ export default function ResultsChatbot({
     return () => {
       isCancelled = true;
     };
-  }, [dominantCode, firstName, topCareerTitle, language]);
+  }, [dominantCode, dominantTrait, secondTrait, firstName, topCareerTitle, studentContext, language]);
 
   // Save messages to client-side sessionStorage ONLY (privacy compliance)
   const persistMessages = (updated) => {
@@ -252,7 +264,16 @@ export default function ResultsChatbot({
 
   // Auto-scroll strictly inside the chat container - NEVER scroll the browser window or parent page
   const prevMsgCountRef = useRef(messages.length);
-  const scrollToBottom = (smooth = false) => {
+  useEffect(() => {
+    // Only scroll when message count increments or when actively streaming chunks
+    let smooth = false;
+    if (messages.length > prevMsgCountRef.current) {
+      prevMsgCountRef.current = messages.length;
+      smooth = true;
+    } else if (!isStreaming) {
+      return;
+    }
+
     const container = chatContainerRef.current;
     if (!container) return;
     if (smooth && !reducedMotion) {
@@ -260,17 +281,7 @@ export default function ResultsChatbot({
     } else {
       container.scrollTop = container.scrollHeight;
     }
-  };
-
-  useEffect(() => {
-    // Only scroll when message count increments or when actively streaming chunks
-    if (messages.length > prevMsgCountRef.current) {
-      prevMsgCountRef.current = messages.length;
-      scrollToBottom(true);
-    } else if (isStreaming) {
-      scrollToBottom(false);
-    }
-  }, [messages.length, isStreaming]);
+  }, [messages.length, isStreaming, reducedMotion]);
 
   // Clear / Delete chat history (Privacy requirement)
   const handleClearHistory = () => {

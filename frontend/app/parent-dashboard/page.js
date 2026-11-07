@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   HeartHandshake,
@@ -663,7 +664,7 @@ export default function ParentDashboardPage() {
               <div className="flex items-center gap-2.5">
                 <span className="h-8 w-8 rounded-full bg-brass/20 text-brass-bright font-bold flex items-center justify-center text-xs border border-brass/40 shrink-0 uppercase">
                   {userProfile.avatarUrl ? (
-                    <img src={userProfile.avatarUrl} alt={fullName} className="h-full w-full object-cover rounded-full" />
+                    <Image src={userProfile.avatarUrl} alt={fullName} width={32} height={32} unoptimized className="h-full w-full object-cover rounded-full" />
                   ) : (
                     getInitials(fullName)
                   )}

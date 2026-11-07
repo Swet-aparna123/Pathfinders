@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import CountryCodeSelect from './CountryCodeSelect';
 import {
@@ -30,7 +31,9 @@ import {
 } from 'lucide-react';
 import GrainOverlay from '@/components/GrainOverlay';
 import { useRegister } from '@/components/RegisterContext';
-import { formatPhoneNumber, registerWithSupabase, resendSignupConfirmation } from '@/lib/supabase/registration';
+import { formatPhoneNumber, registerWithSupabase, resendSignupConfirmation, canUseLocalDemoFallback } from '@/lib/supabase/registration';
+import { userProfileService } from '@/lib/userProfileService';
+import { getRoleHome } from '@/lib/auth/navigation';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useLanguage } from '@/lib/i18n/LanguageContext';
 
@@ -264,6 +267,7 @@ export default function RegisterDrawer() {
   // Submit State
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
   const [resendNotice, setResendNotice] = useState('');
 
   const toggleSubject = (sub) => {
@@ -348,39 +352,40 @@ export default function RegisterDrawer() {
 
     setLoading(true);
     setPassError('');
+    const profile = {
+      fullName: fullName.trim(),
+      firstName: firstName.trim(),
+      middleName: middleName.trim(),
+      lastName: lastName.trim(),
+      phone: formatPhoneNumber(countryCode, phone),
+      role,
+      createdAt: new Date().toISOString(),
+      avatarUrl: profilePic || null,
+      educationLevel,
+      academicStream: stream,
+      favoriteSubjects: selectedSubjects,
+      schoolName,
+      collegeName,
+      degree,
+      branchMajor,
+      targetGoal,
+      currentJobRole: currentJobRole || 'Software Engineering',
+      currentIndustry: currentIndustry || 'IT',
+      expYears: `${expYears} Years`,
+      targetPivot: targetPivot || targetGoal || 'AI & Data Science Specialist',
+      hasChildAccount,
+      parentRelation,
+      studentName,
+      studentIdentifier,
+      noAccountChoice,
+      inviteChildName,
+      inviteChildContact,
+    };
     try {
-      const { data } = await registerWithSupabase({
+      const data = await registerWithSupabase({
         email,
         password,
-        profile: {
-          fullName: fullName.trim(),
-          firstName: firstName.trim(),
-          middleName: middleName.trim(),
-          lastName: lastName.trim(),
-          phone: formatPhoneNumber(countryCode, phone),
-          role,
-          createdAt: new Date().toISOString(),
-          avatarUrl: profilePic || null,
-          educationLevel,
-          academicStream: stream,
-          favoriteSubjects: selectedSubjects,
-          schoolName,
-          collegeName,
-          degree,
-          branchMajor,
-          targetGoal,
-          currentJobRole: currentJobRole || 'Software Engineering',
-          currentIndustry: currentIndustry || 'IT',
-          expYears: `${expYears} Years`,
-          targetPivot: targetPivot || targetGoal || 'AI & Data Science Specialist',
-          hasChildAccount,
-          parentRelation,
-          studentName,
-          studentIdentifier,
-          noAccountChoice,
-          inviteChildName,
-          inviteChildContact,
-        },
+        profile,
       });
 
       if (data.session) {
@@ -389,6 +394,13 @@ export default function RegisterDrawer() {
         setSubmitted(true);
       }
     } catch (error) {
+      if (canUseLocalDemoFallback(error)) {
+        userProfileService.startDemoSession({ ...profile, email });
+        setPassError('');
+        setDemoMode(true);
+        setSubmitted(true);
+        return;
+      }
       setPassError(error.message || 'Unable to create your account. Please try again.');
     } finally {
       setLoading(false);
@@ -522,7 +534,32 @@ export default function RegisterDrawer() {
                 )
               )}
 
-              {submitted ? (
+              {submitted ? demoMode ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.92, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  className="py-8 text-center"
+                  role="status"
+                >
+                  <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-brass-bright bg-brass/10 text-brass-bright">
+                    <Compass className="h-10 w-10" />
+                  </div>
+                  <h2 className="font-display text-2xl sm:text-3xl font-semibold text-parchment mb-2">Local demo profile ready</h2>
+                  <p className="text-sm text-fog/80 max-w-[460px] mx-auto mb-6 leading-relaxed">
+                    Synthetic profile data is saved in this browser only. No Supabase account was created and no email was sent.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      closeRegister();
+                      router.push(getRoleHome(userProfileService.getDemoProfile()));
+                    }}
+                    className="rounded-full bg-brass px-6 py-3 text-sm font-semibold text-ink-deep hover:bg-brass-bright"
+                  >
+                    Continue in demo mode
+                  </button>
+                </motion.div>
+              ) : (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.92, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -644,7 +681,7 @@ export default function RegisterDrawer() {
                               className="relative flex h-16 w-16 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-brass-bright/70 bg-ink-deep text-brass-bright shadow-lg transition-all group-hover:scale-105"
                             >
                               {profilePic ? (
-                                <img src={profilePic} alt="Profile Avatar" className="h-full w-full object-cover" />
+                                <Image src={profilePic} alt="Profile Avatar" width={64} height={64} unoptimized className="h-full w-full object-cover" />
                               ) : (
                                 <User className="h-8 w-8 text-fog/50 group-hover:text-brass-bright" />
                               )}
