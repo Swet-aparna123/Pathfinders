@@ -1,13 +1,15 @@
+
 /**
  * Student Career Matching Utility
  *
- * Connects logged-in student's Holland RIASEC assessment results
- * to calculate deterministic match scores for career cards.
+ * Calculates career alignment using the logged-in
+ * student's actual Holland RIASEC assessment answers.
  *
  * Rules:
- * - Visible ONLY for logged-in students with completed/in-progress assessment.
- * - Hidden for logged-out visitors, parents, and switchers.
- * - Never shows a made-up percentage.
+ * - Only logged-in students can see their match.
+ * - Reads user-specific assessment data first.
+ * - Never invents default assessment answers.
+ * - Match percentage represents actual RIASEC answer alignment.
  */
 
 import { userProfileService } from './userProfileService.js';
@@ -27,17 +29,32 @@ export function getStudentMatchForCareer(career) {
   }
 
   try {
+    // 1. Verify the logged-in student.
     const profile = userProfileService.getProfile();
 
-    // 1. Must be logged-in student (not parent, not switcher, not logged out)
-    const isStudent = profile && profile.role === 'student' && Boolean(profile.fullName && profile.fullName.trim());
+    const isStudent =
+      profile?.role === 'student' &&
+      typeof profile?.fullName === 'string' &&
+      profile.fullName.trim().length > 0;
+
     if (!isStudent) {
       return { isVisible: false };
     }
 
-    // 2. Read student assessment answers
+    // 2. Get the active student's assessment.
+    const uid = userProfileService.getActiveUserId();
+
+    if (!uid) {
+      return { isVisible: false };
+    }
+
+    const userAssessmentKey =
+      `pathfinders_student_assessment_${uid}`;
+
     let studentAssessment = null;
-    const rawAssessment = localStorage.getItem('pathfinders_student_assessment');
+
+    const rawAssessment = localStorage.getItem(userAssessmentKey);
+
     if (rawAssessment) {
       try {
         studentAssessment = JSON.parse(rawAssessment);
@@ -46,11 +63,58 @@ export function getStudentMatchForCareer(career) {
       }
     }
 
-    // Default student baseline if profile exists
-    const answers = studentAssessment?.answers || { R: 4, I: 3, A: 1, S: 1, E: 1, C: 0 };
-    const totalAnswered = Object.values(answers).reduce((a, b) => a + b, 0);
+    // Legacy fallback only for an already completed assessment.
+    if (
+      !studentAssessment &&
+      profile.assessmentCompleted === true
+    ) {
+      try {
+        const legacyRaw = localStorage.getItem(
+          'pathfinders_student_assessment'
+        );
 
-    // If student has answered zero questions, never show a made-up percentage
+        if (legacyRaw) {
+          studentAssessment = JSON.parse(legacyRaw);
+        }
+      } catch {
+        studentAssessment = null;
+      }
+    }
+
+    if (!studentAssessment) {
+      return {
+        isVisible: false,
+        needsAssessment: true,
+      };
+    }
+
+    // 3. Validate actual RIASEC answer counts.
+    const rawAnswers = studentAssessment.answers;
+
+    if (!rawAnswers || typeof rawAnswers !== 'object') {
+      return {
+        isVisible: false,
+        needsAssessment: true,
+      };
+    }
+
+    const answers = {};
+
+    for (const code of Object.keys(HOLLAND_TRAIT_NAMES)) {
+      const count = Number(rawAnswers[code] ?? 0);
+
+      if (!Number.isInteger(count) || count < 0) {
+        return { isVisible: false };
+      }
+
+      answers[code] = count;
+    }
+
+    const totalAnswered = Object.values(answers).reduce(
+      (total, count) => total + count,
+      0
+    );
+
     if (totalAnswered === 0) {
       return {
         isVisible: false,
@@ -58,47 +122,84 @@ export function getStudentMatchForCareer(career) {
       };
     }
 
-    // Sort student traits to find top 2
+    // 4. Find the student's strongest RIASEC traits.
     const sortedTraits = Object.entries(answers)
-      .map(([cat, count]) => ({
-        cat,
+      .map(([code, count]) => ({
+        ...HOLLAND_TRAIT_NAMES[code],
         count,
         pct: Math.round((count / totalAnswered) * 100),
-        ...HOLLAND_TRAIT_NAMES[cat],
       }))
-      .sort((a, b) => b.count - a.count || b.pct - a.pct);
+      .sort(
+        (a, b) =>
+          b.count - a.count ||
+          b.pct - a.pct
+      );
 
     const dominant = sortedTraits[0];
-    const secondary = sortedTraits[1] || sortedTraits[0];
+    const secondary = sortedTraits[1];
 
-    const careerCode = career?.riasecCode || 'R';
+    // 5. Read the career's actual RIASEC requirements.
+    const careerCode =
+      typeof career?.riasecCode === 'string'
+        ? career.riasecCode.toUpperCase()
+        : '';
 
-    // Calculate match percentage matching dashboard's scoring logic
-    let matchPct = 82;
-    if (dominant.cat === careerCode) {
-      // Matches dominant RIASEC trait exactly (like Realistic -> Automobile Engineer)
-      matchPct = Math.min(98, 90 + Math.round((dominant.count / Math.max(1, totalAnswered)) * 12));
-    } else if (secondary.cat === careerCode) {
-      // Matches secondary RIASEC trait
-      matchPct = Math.min(91, 84 + Math.round((secondary.count / Math.max(1, totalAnswered)) * 8));
-    } else if (career?.riasecTraits?.includes(dominant.name)) {
-      matchPct = 86;
-    } else {
-      matchPct = 74;
+    const careerTraitNames = Array.isArray(career?.riasecTraits)
+      ? career.riasecTraits
+      : [];
+
+    const matchingCodes = new Set(
+      careerCode
+        .split('')
+        .filter((code) => HOLLAND_TRAIT_NAMES[code])
+    );
+
+    // Also support career traits stored as names.
+    for (const [code, trait] of Object.entries(HOLLAND_TRAIT_NAMES)) {
+      if (careerTraitNames.includes(trait.name)) {
+        matchingCodes.add(code);
+      }
     }
 
-    const traitLabel = `${dominant.name} (${dominant.archetype}) & ${secondary.name} (${secondary.archetype})`;
+    // Do not invent a career match when requirements are missing.
+    if (matchingCodes.size === 0) {
+      return { isVisible: false };
+    }
+
+    // 6. Calculate actual RIASEC alignment.
+    // This is the percentage of the student's answers
+    // that fall within the career's listed RIASEC traits.
+    const matchingAnswers = [...matchingCodes].reduce(
+      (total, code) => total + answers[code],
+      0
+    );
+
+    const matchPct = Math.round(
+      (matchingAnswers / totalAnswered) * 100
+    );
+
+    const traitLabel =
+      `${dominant.name} (${dominant.archetype}) & ` +
+      `${secondary.name} (${secondary.archetype})`;
 
     return {
       isVisible: true,
       matchPct,
       topTraits: [dominant.name, secondary.name],
       traitLabel,
-      dominantCode: dominant.cat,
-      secondaryCode: secondary.cat,
+      dominantCode: dominant.code,
+      secondaryCode: secondary.code,
+      matchingCodes: [...matchingCodes],
+      totalAnswered,
+      matchingAnswers,
     };
+
   } catch (err) {
-    console.warn('Error calculating student career match:', err);
+    console.warn(
+      'Error calculating student career match:',
+      err
+    );
+
     return { isVisible: false };
   }
 }

@@ -345,13 +345,14 @@ export const userProfileService = {
   },
 
   clearRapidFireResult() {
-    const current = this.getProfile();
-    const updated = {
-      ...current,
-      rapidFireCompleted: false,
-      rapidFireResult: null,
-      adaptiveFollowupQuestions: []
-    };
+  const current = this.getProfile();
+  const updated = {
+    ...current,
+    rapidFireCompleted: false,
+    rapidFireResult: null,
+    adaptiveFollowupQuestions: [],
+    adaptiveFollowupAnswers: {}
+  };
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem('pathfinders_rapid_fire_active_session_v1');

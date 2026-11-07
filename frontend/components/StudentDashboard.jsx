@@ -501,12 +501,9 @@ export default function StudentDashboardComponent() {
   }, [answers, selectedHistory]);
 
   // Chatbot completion & discussion keywords state
-  const [chatbotSessionCompleted, setChatbotSessionCompleted] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('pathfinders_chatbot_completed') === 'true' || Boolean(userProfile?.chatbotCompleted);
-    }
-    return Boolean(userProfile?.chatbotCompleted);
-  });
+  const [chatbotSessionCompleted, setChatbotSessionCompleted] = useState(
+  () => Boolean(userProfile?.chatbotCompleted)
+);
   const [chatbotKeywords, setChatbotKeywords] = useState(() => userProfile?.chatbotKeywords || []);
 
   // All 12 careers synthesized across: Assessment (Holland Code), Rapid Fire (Cognitive Reflexes), and Chatbot
@@ -2804,7 +2801,7 @@ export default function StudentDashboardComponent() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {allScoredCareers.map((career) => (
+                {recommendedCareers.map((career) => (
                   <div key={career.title} className={`border rounded-3xl p-6 shadow-sm flex flex-col justify-between transition-colors ${
                     isDark ? 'bg-[#101B2E] border-slate-700/80 text-white hover:border-[#D4A034]' : 'bg-white border-[#E6DCC8] text-[#1C2536] hover:border-[#B8860B]'
                   }`}>

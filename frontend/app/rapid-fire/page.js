@@ -1,5 +1,6 @@
 'use client';
 
+import AdaptiveFollowupQuestionnaire from '@/components/AdaptiveFollowupQuestionnaire';
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -343,6 +344,7 @@ function RapidFireAssessmentContent() {
     } catch (e) {}
     // Clear only Rapid Fire results, preserving the rest of the profile
     userProfileService.clearRapidFireResult();
+setProfile(userProfileService.getProfile());
     setStage('welcome');
   };
 
@@ -925,6 +927,20 @@ function RapidFireAssessmentContent() {
                 </div>
               </div>
 
+<AdaptiveFollowupQuestionnaire
+  questions={adaptiveQuestions}
+  initialAnswers={profile?.adaptiveFollowupAnswers || {}}
+  isDark={isDark}
+  onSave={(answers) => {
+    userProfileService.saveProfile({
+      adaptiveFollowupAnswers: answers,
+    });
+    setProfile((previous) => ({
+      ...previous,
+      adaptiveFollowupAnswers: answers,
+    }));
+  }}
+/>
               {/* Safety & Child-Protection Notice */}
               <div className={`p-3.5 rounded-xl border text-[0.72rem] font-mono flex items-start gap-2.5 ${
                 isDark

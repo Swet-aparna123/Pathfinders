@@ -101,6 +101,7 @@ export function generateAdaptiveFollowupQuestions(rapidFireAnalysis = {}) {
         derived_from_signal: sig.signal_id,
         category: sig.category,
         question: template.question,
+        type: template.type,
         dimension: template.dimension,
         options: template.options,
         rationale: sig.observation
@@ -120,6 +121,7 @@ export function generateAdaptiveFollowupQuestions(rapidFireAnalysis = {}) {
             derived_from_signal: defKey,
             category: 'Adaptive Discovery',
             question: item.question,
+            type: item.type,
             dimension: item.dimension,
             options: item.options,
             rationale: 'Baseline discovery question to personalize mentor advice.'
