@@ -395,7 +395,7 @@ export default function CareerCardTemplate({ career, initialLang }) {
                           {idx + 1}
                         </span>
                         <span className="text-sm sm:text-base leading-relaxed text-charcoal">
-                          {trait}
+                          {typeof trait === 'string' ? trait : trait.name}
                         </span>
                       </li>
                     ))}
